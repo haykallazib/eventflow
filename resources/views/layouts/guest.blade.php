@@ -29,7 +29,7 @@
 <body>
 <div class="gsplit @if(request()->routeIs('login'))login-page @endif">
   <div class="gform">
-    <div class="row sp"><div class="brand" style="padding:0"><span class="logo"><i data-lucide="calendar-check" class="i"></i></span> EventFlow</div><div class="row">@include('partials.lang') @include('partials.theme-toggle')</div></div>
+    <div class="row sp"><div class="brand" style="padding:0"><span class="logo"><i data-lucide="calendar-check" class="i"></i></span> EventFlow</div><div class="row">@include('partials.theme-toggle')</div></div>
     <div class="wrap">@yield('content')</div>
   </div>
   <div class="gside">

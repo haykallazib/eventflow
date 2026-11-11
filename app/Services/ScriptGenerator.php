@@ -25,6 +25,10 @@ class ScriptGenerator
             throw new RuntimeException('Agama untuk naskah doa belum dipilih atau tidak tersedia.');
         }
 
+        if ($this->usesAi()) {
+            set_time_limit(0);
+        }
+
         $content = $this->usesAi()
             ? $this->callAi($event, $type, $religion)
             : $this->template($event, $type, $religion);
@@ -39,7 +43,8 @@ class ScriptGenerator
             throw new RuntimeException('Model OpenRouter belum diatur.');
         }
 
-        $response = Http::timeout(60)
+        $response = Http::timeout(0)
+            ->connectTimeout(0)
             ->withHeaders([
                 'Authorization' => 'Bearer '.config('services.openrouter.key'),
             ])
@@ -57,7 +62,15 @@ class ScriptGenerator
             ]);
 
         if ($response->failed()) {
-            throw new RuntimeException('Layanan AI tidak merespons ('.$response->status().').');
+            $providerMessage = data_get($response->json(), 'error.message');
+            if (is_string($providerMessage)) {
+                $providerMessage = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $providerMessage) ?? '';
+                $providerMessage = preg_replace('/(?:sk-or-v1-|Bearer\s+)[A-Za-z0-9._~+\/=-]+/i', '[redacted]', $providerMessage) ?? '';
+                $providerMessage = mb_substr(trim($providerMessage), 0, 240);
+            }
+
+            $detail = filled($providerMessage) ? ' Pesan OpenRouter: '.$providerMessage : '';
+            throw new RuntimeException('Layanan AI tidak merespons ('.$response->status().').'.$detail);
         }
 
         $text = trim((string) data_get($response->json(), 'choices.0.message.content', ''));

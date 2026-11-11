@@ -49,7 +49,7 @@
         <span class="row">@if($script->is_ai)<span class="badge ai"><i data-lucide="sparkles" class="i"></i>{{ __('Draf AI') }}</span>@else<span class="badge p">{{ __('Disunting') }}</span>@endif<span class="badge">v{{ $script->version }}</span></span>
       </div>
       <textarea class="inp" name="content" rows="20" style="text-align:justify;line-height:1.8;font-size:15px;padding:18px;white-space:pre-wrap">{{ old('content', $scriptContent) }}</textarea>
-      @error('content')<div class="errtxt">{{ $message }}</div>@enderror
+      @error('content')<div class="errtxt">{{ __($message) }}</div>@enderror
       <div class="row" style="justify-content:flex-end;flex-wrap:wrap">
         <button type="button" class="btn btn-s" onclick="navigator.clipboard.writeText(this.form.content.value)"><i data-lucide="copy" class="i"></i> {{ __('Salin') }}</button>
         <button class="btn btn-p">{{ __('Simpan') }}</button>

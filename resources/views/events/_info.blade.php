@@ -9,20 +9,20 @@
 <div class="sec">
   <div class="t18">{{ __('Informasi acara') }}</div>
   <div><label class="lbl" for="name">{{ __('Nama acara') }}</label>
-    <input class="inp {{ $errors->has('name')?'err':'' }}" id="name" name="name" value="{{ $val('name') }}" placeholder="Seminar Nasional Teknologi 2026">
-    @error('name')<div class="errtxt">{{ $message }}</div>@enderror</div>
+    <input class="inp {{ $errors->has('name')?'err':'' }}" id="name" name="name" value="{{ $val('name') }}" placeholder="{{ __('Seminar Nasional Teknologi 2026') }}">
+    @error('name')<div class="errtxt">{{ __($message) }}</div>@enderror</div>
   <div><label class="lbl" for="theme">{{ __('Tema') }} <span class="muted">({{ __('opsional') }})</span></label>
     <input class="inp" id="theme" name="theme" value="{{ $val('theme') }}"></div>
   <div class="g4">
     <div><label class="lbl" for="event_date">{{ __('Tanggal') }}</label>
       <input class="inp {{ $errors->has('event_date')?'err':'' }}" type="date" id="event_date" name="event_date" value="{{ $val('event_date') }}">
-      @error('event_date')<div class="errtxt">{{ $message }}</div>@enderror</div>
+      @error('event_date')<div class="errtxt">{{ __($message) }}</div>@enderror</div>
     <div><label class="lbl" for="start_time">{{ __('Jam mulai') }}</label>
       <input class="inp {{ $errors->has('start_time')?'err':'' }}" type="time" id="start_time" name="start_time" value="{{ $val('start_time','08:00') }}">
-      @error('start_time')<div class="errtxt">{{ $message }}</div>@enderror</div>
+      @error('start_time')<div class="errtxt">{{ __($message) }}</div>@enderror</div>
     <div><label class="lbl" for="duration_hours">{{ __('Durasi (jam)') }}</label>
       <input class="inp {{ $errors->has('duration_hours')?'err':'' }}" type="number" step="0.5" min="0.5" max="24" id="duration_hours" name="duration_hours" value="{{ $val('duration_hours', 6) }}">
-      @error('duration_hours')<div class="errtxt">{{ $message }}</div>@enderror</div>
+      @error('duration_hours')<div class="errtxt">{{ __($message) }}</div>@enderror</div>
     <div><label class="lbl" for="location">{{ __('Lokasi') }}</label>
       <input class="inp" id="location" name="location" value="{{ $val('location') }}"></div>
   </div>
@@ -45,9 +45,9 @@
       </div>
     @endforeach
   </div>
-  @error('custom_features')<div class="errtxt">{{ $message }}</div>@enderror
+  @error('custom_features')<div class="errtxt">{{ __($message) }}</div>@enderror
   @foreach($errors->get('custom_features.*') as $messages)
-    @foreach($messages as $message)<div class="errtxt">{{ $message }}</div>@endforeach
+    @foreach($messages as $message)<div class="errtxt">{{ __($message) }}</div>@endforeach
   @endforeach
   <p class="t12 muted">{{ __('Kegiatan tambahan otomatis berbagi sisa durasi dengan sesi pemateri.') }}</p>
   <template id="custom-feature-template">

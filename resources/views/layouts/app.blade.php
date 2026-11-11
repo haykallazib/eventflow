@@ -39,13 +39,11 @@
   <div class="main">
     <header class="top">
       <div class="t18 grow">@yield('heading')</div>
-      @include('partials.lang')
       @include('partials.theme-toggle')
     </header>
     <header class="mtop">
       <span class="logo"><i data-lucide="calendar-check" class="i"></i></span>
       <div class="t16 b grow">@yield('heading')</div>
-      @include('partials.lang')
       @include('partials.theme-toggle')
       <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-g btn-ic" title="{{ __('Keluar') }}"><i data-lucide="log-out" class="i"></i></button></form>
     </header>

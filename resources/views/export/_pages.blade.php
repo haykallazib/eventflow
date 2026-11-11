@@ -5,7 +5,7 @@
   @foreach($event->sessions as $s)
     <div class="rv {{ $s->is_ishoma?'ish':'' }}" style="padding:0 8px">
       <span class="tm">{{ $s->start_time }}–{{ $s->endTime() }}</span><span class="rail"><i class="{{ $s->is_ishoma?'w':'' }}"></i></span>
-      <span class="b">{{ $s->title }}@if($s->note)<br><span class="t12 muted">{{ __($s->note) }}</span>@endif</span>
+      <span class="b">{{ __($s->title) }}@if($s->note)<br><span class="t12 muted">{{ __($s->note) }}</span>@endif</span>
       <span class="hide-m muted">{{ $s->duration_minutes }} {{ __('mnt') }}</span><span class="hide-m muted">{{ $s->pic }}</span>
     </div>
   @endforeach

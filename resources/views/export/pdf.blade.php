@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8">
+<html lang="{{ app()->getLocale() }}"><head><meta charset="utf-8">
 <style>
   @page{size:A4;margin:30mm 30mm 30mm 40mm}
   body{font-family:'DejaVu Sans',sans-serif;font-size:11pt;color:#0F172A;line-height:1.7}
@@ -16,18 +16,18 @@
   .script-title{font-size:15pt;color:#4F46E5;margin:0 0 18px}
 </style></head><body>
 @if($section !== 'all' && $section !== 'rundown')
-  <h1 class="script-title">{{ $types[$section] }}</h1>
+  <h1 class="script-title">{{ __($types[$section]) }}</h1>
 @endif
 @if($section === 'all' || $section === 'rundown')
-<div class="muted">RUNDOWN ACARA</div>
+<div class="muted">{{ __('RUNDOWN ACARA') }}</div>
 <h1>{{ $event->name }}</h1>
 <div class="muted event-meta">{{ $event->event_date->translatedFormat('l, d F Y') }} · {{ $event->start_time }}–{{ $event->endTime() }} WIB @if($event->location)· {{ $event->location }}@endif</div>
 <table>
-  <tr><th style="width:90px">Waktu</th><th>Kegiatan</th><th style="width:55px">Durasi</th><th style="width:110px">PIC</th></tr>
+  <tr><th style="width:90px">{{ __('Waktu') }}</th><th>{{ __('Kegiatan') }}</th><th style="width:55px">{{ __('Durasi') }}</th><th style="width:110px">PIC</th></tr>
   @foreach($event->sessions as $s)
   <tr class="{{ $s->is_ishoma?'ish':'' }}"><td>{{ $s->start_time }}–{{ $s->endTime() }}</td>
-    <td><b>{{ $s->title }}</b>@if($s->note)<br><span class="muted">{{ $s->note }}</span>@endif</td>
-    <td>{{ $s->duration_minutes }} mnt</td><td>{{ $s->pic }}</td></tr>
+    <td><b>{{ __($s->title) }}</b>@if($s->note)<br><span class="muted">{{ __($s->note) }}</span>@endif</td>
+    <td>{{ $s->duration_minutes }} {{ __('mnt') }}</td><td>{{ $s->pic }}</td></tr>
   @endforeach
 </table>
 @endif
@@ -35,7 +35,7 @@
 <div class="pb"></div>
 @php $availableTypes = collect($types)->filter(fn ($label, $key) => isset($scripts[$key])); @endphp
 @foreach($availableTypes as $k => $label)
-  <h2>{{ $label }}</h2>
+  <h2>{{ __($label) }}</h2>
   @php $paragraphs = preg_split('/\R{2,}/u', trim($scripts[$k]->content)) ?: []; @endphp
   @foreach($paragraphs as $paragraph)
     <p class="script">{{ $paragraph }}</p>

@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\Script;
 use App\Services\ScriptGenerator;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use RuntimeException;
 use Throwable;
 
 class ScriptController extends Controller
@@ -49,7 +51,7 @@ class ScriptController extends Controller
             report($e);
 
             return redirect()->route('studio.show', [$event, $tab])
-                ->with('error', 'Naskah gagal dibuat. Periksa koneksi atau kunci API, lalu coba lagi.');
+                ->with('error', $this->generationErrorMessage($e));
         }
 
         $script = $event->scripts()->where('type', $tab)->first();
@@ -59,6 +61,32 @@ class ScriptController extends Controller
         );
 
         return redirect()->route('studio.show', [$event, $tab])->with('status', 'Naskah berhasil dibuat.');
+    }
+
+    private function generationErrorMessage(Throwable $exception): string
+    {
+        if ($exception instanceof ConnectionException) {
+            return 'OpenRouter tidak dapat dijangkau (koneksi timeout). Periksa internet, firewall/proxy, lalu coba lagi; mengganti API key tidak akan mengatasi masalah koneksi.';
+        }
+
+        if (! $exception instanceof RuntimeException
+            || ! preg_match('/Layanan AI tidak merespons \((\d{3})\)\./', $exception->getMessage(), $matches)) {
+            return 'Naskah gagal dibuat. Periksa koneksi atau kunci API, lalu coba lagi.';
+        }
+
+        $status = (int) $matches[1];
+        $detail = preg_match('/ Pesan OpenRouter: (.+)$/u', $exception->getMessage(), $details)
+            ? ' Pesan OpenRouter: '.$details[1]
+            : '';
+
+        return match (true) {
+            $status === 401 => 'OpenRouter tidak mengenali kredensial (HTTP 401). Pastikan OPENROUTER_API_KEY berisi API key aktif dari akun OpenRouter, bukan placeholder; setelah mengubah .env jalankan php artisan config:clear dan mulai ulang server.',
+            $status === 403 => 'OpenRouter menolak akses (HTTP 403). Pastikan akun atau model yang dipilih memiliki izin untuk membuat naskah.',
+            in_array($status, [402, 429], true) => "Kuota/kredit atau batas permintaan OpenRouter tercapai (HTTP {$status}). Periksa saldo dan batas akun/provider.",
+            $status === 400 => 'Permintaan ditolak OpenRouter (HTTP 400). Pastikan OPENROUTER_MODEL sesuai model yang tersedia di akun.',
+            $status >= 500 => "OpenRouter sedang bermasalah (HTTP {$status}). Coba beberapa saat lagi.",
+            default => "Layanan AI menolak permintaan (HTTP {$status}). Periksa konfigurasi dan coba lagi.",
+        }.$detail;
     }
 
     public function update(Request $request, Event $event, string $tab): RedirectResponse

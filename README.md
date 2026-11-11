@@ -32,7 +32,7 @@ php artisan serve
 Buka http://localhost:8000 dan masuk dengan **demo / password123** (atau daftar akun baru).
 
 ### Naskah AI
-Isi `OPENROUTER_API_KEY` dan `OPENROUTER_MODEL` di `.env` untuk memakai layanan AI. Gunakan model ID yang tersedia di OpenRouter (format `provider/model`). Tanpa kunci, studio memakai templat bawaan (ada banner "Mode contoh").
+Isi `OPENROUTER_API_KEY` dan `OPENROUTER_MODEL` di `.env` untuk memakai layanan AI. Gunakan model ID yang tersedia di OpenRouter (format `provider/model`). Tanpa kunci, studio memakai templat bawaan (ada banner "Mode contoh"). Setelah mengubah `.env`, jalankan `php artisan config:clear`. Permintaan AI tidak dibatasi timeout oleh aplikasi; kecepatan tetap bergantung pada koneksi dan respons OpenRouter. Jika muncul HTTP 401, buat/gunakan API key OpenRouter yang aktif—aplikasi tidak dapat memperbaiki key yang ditolak server.
 
 ### Pengujian
 ```bash

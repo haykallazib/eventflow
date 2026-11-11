@@ -18,10 +18,55 @@ class ExampleTest extends TestCase
 
     public function test_theme_toggle_is_available_on_guest_and_authenticated_pages(): void
     {
-        $this->get('/masuk')->assertOk()->assertSee('data-theme-toggle', false);
+        $this->get('/masuk')
+            ->assertOk()
+            ->assertSee('data-theme-toggle', false)
+            ->assertDontSee('/bahasa/id')
+            ->assertDontSee('/bahasa/en');
 
         $user = User::create(['username' => 'tema', 'password' => 'rahasia123']);
-        $this->actingAs($user)->get('/')->assertOk()->assertSee('data-theme-toggle', false);
+        $this->actingAs($user)->get('/')
+            ->assertOk()
+            ->assertSee('data-theme-toggle', false)
+            ->assertDontSee('/bahasa/id')
+            ->assertDontSee('/bahasa/en');
+    }
+
+    public function test_language_switch_translates_the_script_studio_and_persists(): void
+    {
+        $user = User::create(['username' => 'bahasa', 'password' => 'rahasia123']);
+        $event = $user->events()->create([
+            'name' => 'Seminar',
+            'event_date' => '2026-12-01',
+            'start_time' => '08:00',
+            'duration_minutes' => 180,
+            'features' => [],
+        ]);
+        $studioUrl = route('studio.show', [$event, 'doa']);
+
+        $this->actingAs($user)
+            ->from($studioUrl)
+            ->get(route('lang', 'en'))
+            ->assertRedirect($studioUrl);
+
+        $this->get($studioUrl)
+            ->assertOk()
+            ->assertSee('<html lang="en">', false)
+            ->assertSee('AI Script Studio')
+            ->assertSee('Prayer')
+            ->assertSee('Choose a religion before generating a draft.')
+            ->assertSee('Select a religion')
+            ->assertSee('Christian (Protestant)');
+
+        $this->from($studioUrl)
+            ->get(route('lang', 'id'))
+            ->assertRedirect($studioUrl);
+
+        $this->get($studioUrl)
+            ->assertOk()
+            ->assertSee('<html lang="id">', false)
+            ->assertSee('Studio Naskah AI')
+            ->assertSee('Pilih agama sebelum membuat draf.');
     }
 
     public function test_user_must_log_in_after_registering(): void
@@ -86,11 +131,14 @@ class ExampleTest extends TestCase
             'services.openrouter.key' => 'test-openrouter-key',
             'services.openrouter.model' => 'provider/test-model',
         ]);
-        Http::fake([
-            'https://openrouter.ai/api/v1/chat/completions' => Http::response([
+        $requestOptions = [];
+        Http::fake(function ($request, array $options) use (&$requestOptions) {
+            $requestOptions = $options;
+
+            return Http::response([
                 'choices' => [['message' => ['content' => '**Naskah # sambutan hasil AI.**']]],
-            ]),
-        ]);
+            ]);
+        });
 
         $user = User::create(['username' => 'panitia-ai', 'password' => 'rahasia123']);
         $event = $user->events()->create([
@@ -127,6 +175,8 @@ class ExampleTest extends TestCase
             'content' => 'Naskah  sambutan hasil AI.',
             'is_ai' => true,
         ]);
+        $this->assertSame(0, $requestOptions['timeout']);
+        $this->assertSame(0, $requestOptions['connect_timeout']);
 
         Http::assertSent(fn ($request) => $request->url() === 'https://openrouter.ai/api/v1/chat/completions'
             && $request->hasHeader('Authorization', 'Bearer test-openrouter-key')
@@ -137,6 +187,87 @@ class ExampleTest extends TestCase
             && str_contains($request['messages'][1]['content'], 'Tulis tepat 2 naskah sambutan')
             && str_contains($request['messages'][1]['content'], 'PIC: Ketua Panitia')
             && str_contains($request['messages'][1]['content'], 'PIC: Rektor'));
+    }
+
+    public function test_ai_script_generation_shows_actionable_openrouter_errors(): void
+    {
+        config([
+            'services.openrouter.key' => 'test-openrouter-key',
+            'services.openrouter.model' => 'provider/test-model',
+        ]);
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::sequence()
+                ->push([], 401)
+                ->push([], 429),
+        ]);
+
+        $user = User::create(['username' => 'panitia-ai-errors', 'password' => 'rahasia123']);
+        $event = $user->events()->create([
+            'name' => 'Seminar',
+            'event_date' => '2026-12-01',
+            'start_time' => '08:00',
+            'duration_minutes' => 360,
+            'features' => [],
+        ]);
+        $this->actingAs($user);
+
+        $this->post(route('studio.generate', [$event, 'sambutan']))
+            ->assertSessionHas('error', 'OpenRouter tidak mengenali kredensial (HTTP 401). Pastikan OPENROUTER_API_KEY berisi API key aktif dari akun OpenRouter, bukan placeholder; setelah mengubah .env jalankan php artisan config:clear dan mulai ulang server.');
+        $this->post(route('studio.generate', [$event, 'sambutan']))
+            ->assertSessionHas('error', 'Kuota/kredit atau batas permintaan OpenRouter tercapai (HTTP 429). Periksa saldo dan batas akun/provider.');
+    }
+
+    public function test_ai_script_generation_shows_sanitized_openrouter_error_details(): void
+    {
+        config([
+            'services.openrouter.key' => 'test-openrouter-key',
+            'services.openrouter.model' => 'provider/test-model',
+        ]);
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::response([
+                'error' => ['message' => 'Invalid key: sk-or-v1-do-not-show-this'],
+            ], 401),
+        ]);
+
+        $user = User::create(['username' => 'panitia-ai-provider-error', 'password' => 'rahasia123']);
+        $event = $user->events()->create([
+            'name' => 'Seminar',
+            'event_date' => '2026-12-01',
+            'start_time' => '08:00',
+            'duration_minutes' => 360,
+            'features' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('studio.generate', [$event, 'sambutan']))
+            ->assertSessionHas('error', function (string $message): bool {
+                return str_contains($message, 'Pesan OpenRouter: Invalid key: [redacted]')
+                    && ! str_contains($message, 'do-not-show-this');
+            });
+    }
+
+    public function test_ai_script_generation_explains_connection_timeouts(): void
+    {
+        config([
+            'services.openrouter.key' => 'test-openrouter-key',
+            'services.openrouter.model' => 'provider/test-model',
+        ]);
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::failedConnection('Connection timed out'),
+        ]);
+
+        $user = User::create(['username' => 'panitia-ai-timeout', 'password' => 'rahasia123']);
+        $event = $user->events()->create([
+            'name' => 'Seminar',
+            'event_date' => '2026-12-01',
+            'start_time' => '08:00',
+            'duration_minutes' => 360,
+            'features' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('studio.generate', [$event, 'sambutan']))
+            ->assertSessionHas('error', 'OpenRouter tidak dapat dijangkau (koneksi timeout). Periksa internet, firewall/proxy, lalu coba lagi; mengganti API key tidak akan mengatasi masalah koneksi.');
     }
 
     public function test_sambutan_template_contains_formal_and_nonformal_versions(): void

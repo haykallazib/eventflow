@@ -59,7 +59,7 @@
     <div><label class="lbl">{{ __('Durasi (menit)') }}</label><input class="inp sm" type="number" min="1" name="duration_minutes" value="15" required></div>
     <div><label class="lbl">PIC</label><input class="inp sm" name="pic"></div>
   </div>
-  @if($errors->any())<div class="errtxt">{{ $errors->first() }}</div>@endif
+  @if($errors->any())<div class="errtxt">{{ __($errors->first()) }}</div>@endif
   <div><button class="btn btn-s"><i data-lucide="plus" class="i"></i> {{ __('Tambah') }}</button></div>
 </form>
 @endsection
