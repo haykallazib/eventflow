@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Script;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -13,6 +14,10 @@ use RuntimeException;
  */
 class ScriptGenerator
 {
+    private const DEFAULT_PRIMARY_MODEL = 'dots-studio/dots-3-note-preview:free';
+
+    private const DEFAULT_SECONDARY_MODEL = 'nvidia/nemotron-3.5-super-vl:free';
+
     public function usesAi(): bool
     {
         return filled(config('services.openrouter.key'));
@@ -36,49 +41,107 @@ class ScriptGenerator
         return Script::cleanDraftContent($content);
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function modelsToTry(): array
+    {
+        $configuredPrimary = config('services.openrouter.model');
+        $configuredFallback = config('services.openrouter.fallback_model');
+
+        $candidates = [
+            filled($configuredPrimary) ? trim((string) $configuredPrimary) : self::DEFAULT_PRIMARY_MODEL,
+            filled($configuredFallback) ? trim((string) $configuredFallback) : self::DEFAULT_SECONDARY_MODEL,
+            self::DEFAULT_PRIMARY_MODEL,
+            self::DEFAULT_SECONDARY_MODEL,
+        ];
+
+        $unique = [];
+        foreach ($candidates as $model) {
+            if ($model !== '' && ! in_array($model, $unique, true)) {
+                $unique[] = $model;
+            }
+        }
+
+        return $unique;
+    }
+
     private function callAi(Event $event, string $type, ?string $religion): string
     {
-        $model = config('services.openrouter.model');
-        if (! filled($model)) {
+        $models = $this->modelsToTry();
+        if ($models === []) {
             throw new RuntimeException('Model OpenRouter belum diatur.');
         }
 
-        $response = Http::timeout(0)
-            ->connectTimeout(0)
-            ->withHeaders([
-                'Authorization' => 'Bearer '.config('services.openrouter.key'),
-            ])
-            ->post(config('services.openrouter.url'), [
-                'model' => $model,
-                'max_tokens' => $type === 'doa' ? 3000 : 6000,
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Anda penulis naskah acara berbahasa Indonesia yang jelas dan sopan. '
-                            .'Ikuti gaya yang diminta untuk setiap bagian dan tulis hanya naskah, tanpa pengantar atau penutup di luar naskah.',
-                    ],
-                    ['role' => 'user', 'content' => $this->prompt($event, $type, $religion)],
-                ],
-            ]);
+        $apiKey = config('services.openrouter.key');
+        $url = config('services.openrouter.url');
+        $prompt = $this->prompt($event, $type, $religion);
+        $maxTokens = $type === 'doa' ? 3000 : 6000;
 
-        if ($response->failed()) {
-            $providerMessage = data_get($response->json(), 'error.message');
-            if (is_string($providerMessage)) {
-                $providerMessage = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $providerMessage) ?? '';
-                $providerMessage = preg_replace('/(?:sk-or-v1-|Bearer\s+)[A-Za-z0-9._~+\/=-]+/i', '[redacted]', $providerMessage) ?? '';
-                $providerMessage = mb_substr(trim($providerMessage), 0, 240);
+        $lastException = null;
+        $totalModels = count($models);
+
+        foreach ($models as $index => $model) {
+            $response = Http::timeout(0)
+                ->connectTimeout(0)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$apiKey,
+                ])
+                ->post($url, [
+                    'model' => $model,
+                    'max_tokens' => $maxTokens,
+                    'messages' => [
+                        [
+                            'role' => 'system',
+                            'content' => 'Anda penulis naskah acara berbahasa Indonesia yang jelas dan sopan. '
+                                .'Ikuti gaya yang diminta untuk setiap bagian dan tulis hanya naskah, tanpa pengantar atau penutup di luar naskah.',
+                        ],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                ]);
+
+            if ($response->failed()) {
+                $lastException = $this->buildHttpException($response, $model);
+                $status = $response->status();
+
+                // Coba model berikutnya jika rate limit / provider error (429) atau model tidak tersedia (404)
+                $hasNextModel = $index < ($totalModels - 1);
+                if ($hasNextModel && in_array($status, [404, 408, 429, 500, 502, 503, 504], true)) {
+                    usleep(500000);
+                    continue;
+                }
+
+                throw $lastException;
             }
 
-            $detail = filled($providerMessage) ? ' Pesan OpenRouter: '.$providerMessage : '';
-            throw new RuntimeException('Layanan AI tidak merespons ('.$response->status().').'.$detail);
+            $text = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
+            if ($text === '') {
+                $lastException = new RuntimeException("Layanan AI ({$model}) mengembalikan naskah kosong.");
+                if ($index < ($totalModels - 1)) {
+                    usleep(500000);
+                    continue;
+                }
+                throw $lastException;
+            }
+
+            return $text;
         }
 
-        $text = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
-        if ($text === '') {
-            throw new RuntimeException('Layanan AI mengembalikan naskah kosong.');
+        throw $lastException ?? new RuntimeException('Layanan AI gagal memproses permintaan.');
+    }
+
+    private function buildHttpException(Response $response, string $model): RuntimeException
+    {
+        $providerMessage = data_get($response->json(), 'error.message');
+        if (is_string($providerMessage)) {
+            $providerMessage = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $providerMessage) ?? '';
+            $providerMessage = preg_replace('/(?:sk-or-v1-|Bearer\s+)[A-Za-z0-9._~+\/=-]+/i', '[redacted]', $providerMessage) ?? '';
+            $providerMessage = mb_substr(trim($providerMessage), 0, 240);
         }
 
-        return $text;
+        $detail = filled($providerMessage) ? ' Pesan OpenRouter: '.$providerMessage : '';
+
+        return new RuntimeException("Layanan AI tidak merespons ({$response->status()}) pada model {$model}.".$detail);
     }
 
     private function context(Event $event): string

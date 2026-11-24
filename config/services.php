@@ -29,9 +29,10 @@ return [
     ],
 
     'openrouter' => [
-    'key' => env('OPENROUTER_API_KEY'),
-    'model' => env('OPENROUTER_MODEL', 'particle-ai/particle-1:free'),
-    'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions'),
+        'key' => env('OPENROUTER_API_KEY'),
+        'model' => env('OPENROUTER_MODEL', 'dots-studio/dots-3-note-preview:free'),
+        'fallback_model' => env('OPENROUTER_FALLBACK_MODEL', 'nvidia/nemotron-3.5-super-vl:free'),
+        'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions'),
     ],
 
     'slack' => [

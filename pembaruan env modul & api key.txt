@@ -1,0 +1,11 @@
+cara membersihkan api_key dan modul untuk update
+
+Remove-Item Env:OPENROUTER_MODEL, Env:OPENROUTER_FALLBACK_MODEL -ErrorAction SilentlyContinue
+php artisan config:clear
+php artisan tinker --execute="dump(config('services.openrouter'));"
+Get-ChildItem -Path "D:\eventflow" -Filter ".env*" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+
+Remove-Item Env:OPENROUTER_API_KEY -ErrorAction SilentlyContinue
+Get-ChildItem Env:OPENROUTER_API_KEY -ErrorAction SilentlyContinue
+php artisan config:clear
+php artisan tinker --execute="dump(config('services.openrouter'));"
