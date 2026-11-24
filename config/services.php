@@ -29,9 +29,9 @@ return [
     ],
 
     'openrouter' => [
-        'key' => env('OPENROUTER_API_KEY'),
-        'model' => env('OPENROUTER_MODEL'),
-        'url' => 'https://openrouter.ai/api/v1/chat/completions',
+    'key' => env('OPENROUTER_API_KEY'),
+    'model' => env('OPENROUTER_MODEL', 'particle-ai/particle-1:free'),
+    'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions'),
     ],
 
     'slack' => [
